@@ -1,0 +1,10 @@
+[10:06:21.884] [INFO   ] thread bguspl.set.Main.main() starting.
+[10:06:21.889] [SEVERE ] cannot read configuration file config.properties trying from resources.
+[10:06:21.893] [SEVERE ] configuration file was loaded from resources directory.
+[10:06:21.941] [SEVERE ] error creating swing user interface: 
+No X11 DISPLAY variable was set,
+but this program performed an operation which requires it.
+[10:06:21.942] [SEVERE ] will try to run without user interface
+[10:06:21.943] [SEVERE ] warning: running with human players with no user interface
+[10:06:21.948] [INFO   ] thread dealer starting.
+[10:06:21.950] [INFO   ] thread dealer starting.
