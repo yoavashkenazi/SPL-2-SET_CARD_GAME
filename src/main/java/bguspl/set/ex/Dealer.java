@@ -99,7 +99,12 @@ public class Dealer implements Runnable {
      * Check if any cards can be removed from the deck and placed on the table.
      */
     private void placeCardsOnTable() {
-        // TODO implement
+        //run on each slot and if the slot is empty and there is a card in the deck, place the card from the deck to the slot.
+        for (int i = 0 ; i < env.config.tableSize ; i++) {
+            if (table.slotToCard[i]==null && !deck.isEmpty()){
+                table.placeCard(deck.remove(0), i);
+            }
+        }
     }
 
     /**
@@ -120,7 +125,13 @@ public class Dealer implements Runnable {
      * Returns all the cards from the table to the deck.
      */
     private void removeAllCardsFromTable() {
-        // TODO implement
+        int i = 0;
+        //for each card, removes the card from the table and adds it to the deck
+        for (Integer cardId : table.slotToCard) {
+            table.removeCard(i);
+            deck.add(cardId);
+            i++;
+        }
     }
 
     /**
@@ -128,5 +139,22 @@ public class Dealer implements Runnable {
      */
     private void announceWinners() {
         // TODO implement
+    }
+
+    /**
+     * returns an int array of the cards that player playerId has selected with his tokens
+     */
+    private int[] playerTokensCards(int playerId){
+        int[] cards = new int[table.numberOfTokens];
+        // copies each cards the the player selected to cards, if the player hasn`t used a token, it will put -1 in cards.
+        for(int i = 0 ; i < table.numberOfTokens ; i++){
+            if (table.playersTokens[playerId][i] != -1){
+                cards[i] = table.slotToCard[table.playersTokens[playerId][i]];
+            }
+            else{
+                cards[i] = -1;
+            }
+        }
+        return cards; 
     }
 }

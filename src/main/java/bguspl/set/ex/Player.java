@@ -1,5 +1,8 @@
 package bguspl.set.ex;
 
+import java.util.LinkedList;
+import java.util.Queue;
+
 import bguspl.set.Env;
 
 /**
@@ -50,6 +53,17 @@ public class Player implements Runnable {
      */
     private int score;
 
+    //our code
+    /**
+     * tokensLeft = the number of tokens player playerId is not using right now.
+     */
+    protected int tokensLeft; 
+
+    /**
+     * 
+     */
+    private Queue<Integer> incomingActionsQueue;
+
     /**
      * The class constructor.
      *
@@ -64,6 +78,9 @@ public class Player implements Runnable {
         this.table = table;
         this.id = id;
         this.human = human;
+
+        this.tokensLeft = env.config.featureSize;
+        this.incomingActionsQueue = new LinkedList<Integer>();
     }
 
     /**
@@ -77,6 +94,7 @@ public class Player implements Runnable {
 
         while (!terminate) {
             // TODO implement main player loop
+            
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");

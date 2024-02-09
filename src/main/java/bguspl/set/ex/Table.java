@@ -30,6 +30,16 @@ public class Table {
     protected final Integer[] cardToSlot; // slot per card (if any)
 
     /**
+     * playersTokens[i][j] = the index of the slot player i marked with token j
+     */
+    protected final int[][] playersTokens;
+
+    /**
+     * the number of tokens each player gets in the game (equals to feature size)
+     */
+    protected final int numberOfTokens;
+
+    /**
      * Constructor for testing.
      *
      * @param env        - the game environment objects.
@@ -41,6 +51,9 @@ public class Table {
         this.env = env;
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
+
+        this.playersTokens = new int[env.config.players][env.config.featureSize];
+        this.numberOfTokens = env.config.featureSize;
     }
 
     /**
@@ -116,6 +129,7 @@ public class Table {
      */
     public void placeToken(int player, int slot) {
         // TODO implement
+        // after placing token, we need to awake the delaer (notify). (sleepUntilWokenOrTimeout();)
     }
 
     /**
@@ -127,5 +141,15 @@ public class Table {
     public boolean removeToken(int player, int slot) {
         // TODO implement
         return false;
+    } 
+
+    //Removes all tokens of player playerId from the table
+    public void removePlayerTokens(int playerId){
+        for (int i = 0; i < this.numberOfTokens; i++) {
+            if (playersTokens[playerId][i] != -1){
+                this.removeToken(playerId, playersTokens[playerId][i]);
+            }
+            playersTokens[playerId][i] = -1;
+        }
     }
 }
