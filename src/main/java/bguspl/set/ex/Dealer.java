@@ -2,9 +2,12 @@ package bguspl.set.ex;
 
 import bguspl.set.Env;
 
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
 
 /**
  * This class manages the dealer's threads and data
@@ -37,6 +40,13 @@ public class Dealer implements Runnable {
      */
     private long reshuffleTime = Long.MAX_VALUE;
 
+    /**
+     * A queue that holds players sets that needs to be checked for legality, and does it fairly (FIFO)
+     */
+    private Queue<PlayerSet> setsToCheck;
+
+    private Thread dealerThread;
+
     public Dealer(Env env, Table table, Player[] players) {
         this.env = env;
         this.table = table;
@@ -49,11 +59,12 @@ public class Dealer implements Runnable {
      */
     @Override
     public void run() {
+        this.dealerThread = Thread.currentThread();
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
         while (!shouldFinish()) {
             placeCardsOnTable();
             timerLoop();
-            updateTimerDisplay(false);
+            updateTimerDisplay(true);
             removeAllCardsFromTable();
         }
         announceWinners();
@@ -77,6 +88,7 @@ public class Dealer implements Runnable {
      */
     public void terminate() {
         // TODO implement
+        this.terminate = true;
     }
 
     /**
@@ -93,6 +105,14 @@ public class Dealer implements Runnable {
      */
     private void removeCardsFromTable() {
         // TODO implement
+        
+        /// before checking a set, we need to check if the set is still relevent
+        // remove tokens
+        for (int player = 0 ; player < playersTokens.length ; player++ ) {
+            if (playersTokens[player][slot]){
+                this.removeToken(this.id, slot);
+            }
+        }
     }
 
     /**
@@ -101,7 +121,7 @@ public class Dealer implements Runnable {
     private void placeCardsOnTable() {
         //run on each slot and if the slot is empty and there is a card in the deck, place the card from the deck to the slot.
         for (int i = 0 ; i < env.config.tableSize ; i++) {
-            if (table.slotToCard[i]==null && !deck.isEmpty()){
+            if (table.slotToCard[i]==-1 && !deck.isEmpty()){
                 table.placeCard(deck.remove(0), i);
             }
         }
@@ -112,6 +132,9 @@ public class Dealer implements Runnable {
      */
     private void sleepUntilWokenOrTimeout() {
         // TODO implement
+        try {
+            Thread.sleep(10);
+        } catch (InterruptedException e) {}
     }
 
     /**
@@ -119,6 +142,15 @@ public class Dealer implements Runnable {
      */
     private void updateTimerDisplay(boolean reset) {
         // TODO implement
+        //if the timer needs to be reseted
+        if (reset){
+            reshuffleTime = reshuffleTime + 60000;
+            env.ui.setCountdown(reshuffleTime-System.currentTimeMillis(), reshuffleTime-System.currentTimeMillis()<=10);
+        }
+        //else, update the timer
+        else{
+            env.ui.setCountdown(reshuffleTime-System.currentTimeMillis(), reshuffleTime-System.currentTimeMillis()<=10);
+        }
     }
 
     /**
@@ -139,22 +171,31 @@ public class Dealer implements Runnable {
      */
     private void announceWinners() {
         // TODO implement
-    }
-
-    /**
-     * returns an int array of the cards that player playerId has selected with his tokens
-     */
-    private int[] playerTokensCards(int playerId){
-        int[] cards = new int[table.numberOfTokens];
-        // copies each cards the the player selected to cards, if the player hasn`t used a token, it will put -1 in cards.
-        for(int i = 0 ; i < table.numberOfTokens ; i++){
-            if (table.playersTokens[playerId][i] != -1){
-                cards[i] = table.slotToCard[table.playersTokens[playerId][i]];
+        int maxScore = 0;
+        //the updating list of players with the maximum score
+        List<Integer> winnersList = new LinkedList<Integer>();
+        //runs on each player and checks if his score is the highest 
+        for (int i = 0 ; i < env.config.players ; i++){
+            if (players[i].score()>maxScore){
+                maxScore = players[i].score();
+                winnersList = new LinkedList<Integer>();
+                winnersList.add(i);
             }
-            else{
-                cards[i] = -1;
+            else if(players[i].score()==maxScore){
+                winnersList.add(i);
             }
         }
-        return cards; 
+        //announces the winners.
+        env.ui.announceWinner((winnersList.stream().mapToInt(Integer::intValue)).toArray());
+    }
+
+    public void addSetToCheck (PlayerSet setToCheck){
+        setsToCheck.add(setToCheck);
+    }
+
+    protected void wakeDealerThread (){
+        if (this.dealerThread != null){
+            this.dealerThread.interrupt();
+        }
     }
 }

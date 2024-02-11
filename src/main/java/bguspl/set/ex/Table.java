@@ -30,9 +30,9 @@ public class Table {
     protected final Integer[] cardToSlot; // slot per card (if any)
 
     /**
-     * playersTokens[i][j] = the index of the slot player i marked with token j
+     * playersTokens[i][j] = true iff player i has a token in slot j
      */
-    protected final int[][] playersTokens;
+    protected final boolean[][] playersTokens;
 
     /**
      * the number of tokens each player gets in the game (equals to feature size)
@@ -52,7 +52,7 @@ public class Table {
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
 
-        this.playersTokens = new int[env.config.players][env.config.featureSize];
+        this.playersTokens = new boolean[env.config.players][slotToCard.length];
         this.numberOfTokens = env.config.featureSize;
     }
 
@@ -64,6 +64,13 @@ public class Table {
     public Table(Env env) {
 
         this(env, new Integer[env.config.tableSize], new Integer[env.config.deckSize]);
+        // initiallizing the table to be -1 (-1 means that there are no card in the slot / the card is not placed on the table)
+        for (int i = 0 ; i < this.slotToCard.length ; i++){
+            slotToCard[i]=-1;
+        }
+        for (int i = 0 ; i < this.cardToSlot.length ; i++){
+            cardToSlot[i]=-1;
+        }
     }
 
     /**
@@ -100,6 +107,7 @@ public class Table {
      * @post - the card placed is on the table, in the assigned slot.
      */
     public void placeCard(int card, int slot) {
+        //needs to be synced
         try {
             Thread.sleep(env.config.tableDelayMillis);
         } catch (InterruptedException ignored) {}
@@ -108,6 +116,7 @@ public class Table {
         slotToCard[slot] = card;
 
         // TODO implement
+        env.ui.placeCard(card, slot);
     }
 
     /**
@@ -115,11 +124,17 @@ public class Table {
      * @param slot - the slot from which to remove the card.
      */
     public void removeCard(int slot) {
+         //needs to be synced
         try {
             Thread.sleep(env.config.tableDelayMillis);
         } catch (InterruptedException ignored) {}
 
         // TODO implement
+        cardToSlot[slotToCard[slot]] = -1;
+        slotToCard[slot] = -1;
+        
+
+        env.ui.removeCard(slot);
     }
 
     /**
@@ -128,7 +143,12 @@ public class Table {
      * @param slot   - the slot on which to place the token.
      */
     public void placeToken(int player, int slot) {
+        //needs to be synced
         // TODO implement
+        if (canPlaceToken(player)){
+            playersTokens[player][slot]=true;
+            env.ui.placeToken(player, slot);
+        }
         // after placing token, we need to awake the delaer (notify). (sleepUntilWokenOrTimeout();)
     }
 
@@ -139,17 +159,32 @@ public class Table {
      * @return       - true iff a token was successfully removed.
      */
     public boolean removeToken(int player, int slot) {
+        //needs to be synced
         // TODO implement
+        if (playersTokens[player][slot]){
+            playersTokens[player][slot]=false;
+            env.ui.removeToken(player, slot);
+            return true;
+        }
         return false;
     } 
 
     //Removes all tokens of player playerId from the table
     public void removePlayerTokens(int playerId){
-        for (int i = 0; i < this.numberOfTokens; i++) {
-            if (playersTokens[playerId][i] != -1){
-                this.removeToken(playerId, playersTokens[playerId][i]);
+        //needs to be synced
+        for (int i = 0; i < playersTokens[playerId].length; i++) {
+            if (playersTokens[playerId][i]){
+                this.removeToken(playerId, i);
             }
-            playersTokens[playerId][i] = -1;
         }
+    }
+
+    private boolean canPlaceToken(int playerId){
+        //needs to be synced
+        int counter = 0;
+        for (boolean hasToken : playersTokens[playerId]) {
+            if (hasToken) {counter++;}
+        }
+        return counter<env.config.featureSize;
     }
 }

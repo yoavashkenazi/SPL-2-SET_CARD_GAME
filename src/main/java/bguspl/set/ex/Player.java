@@ -2,6 +2,8 @@ package bguspl.set.ex;
 
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.Random;
+import java.util.concurrent.BlockingQueue;
 
 import bguspl.set.Env;
 
@@ -62,7 +64,9 @@ public class Player implements Runnable {
     /**
      * 
      */
-    private Queue<Integer> incomingActionsQueue;
+    private PlayerInputQueue incomingActionsQueue;
+
+    private Dealer dealer;
 
     /**
      * The class constructor.
@@ -79,8 +83,9 @@ public class Player implements Runnable {
         this.id = id;
         this.human = human;
 
+        this.dealer = dealer;
         this.tokensLeft = env.config.featureSize;
-        this.incomingActionsQueue = new LinkedList<Integer>();
+        this.incomingActionsQueue = new PlayerInputQueue(env.config.featureSize);
     }
 
     /**
@@ -94,7 +99,20 @@ public class Player implements Runnable {
 
         while (!terminate) {
             // TODO implement main player loop
-            
+            Integer slot = incomingActionsQueue.take();
+            if (table.playersTokens[this.id][slot]){
+                table.removeToken(this.id, slot);
+                this.tokensLeft++;
+            }
+            else{
+                table.placeToken(this.id, slot);
+                this.tokensLeft--;
+            }
+            // if the third token was placed, the newly formed set is sent to the dealer for checking.
+            if (tokensLeft==0){
+                dealer.addSetToCheck(this.getSet());
+                dealer.wakeDealerThread();
+            }
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -110,8 +128,12 @@ public class Player implements Runnable {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
                 // TODO implement player key press simulator
-                try {
-                    synchronized (this) { wait(); }
+                Random random = new Random();
+                this.keyPressed(random.nextInt(env.config.tableSize)); // Generates a random integer between 0 (inclusive) and tableSize (exclusive)
+                try { //we need to check what does this lines mean.
+                    synchronized (this) {
+                         wait();
+                    }
                 } catch (InterruptedException ignored) {}
             }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -124,6 +146,7 @@ public class Player implements Runnable {
      */
     public void terminate() {
         // TODO implement
+        this.terminate=true;
     }
 
     /**
@@ -133,6 +156,7 @@ public class Player implements Runnable {
      */
     public void keyPressed(int slot) {
         // TODO implement
+        this.incomingActionsQueue.put(slot);
     }
 
     /**
@@ -143,6 +167,10 @@ public class Player implements Runnable {
      */
     public void point() {
         // TODO implement
+        try {
+            playerThread.sleep(env.config.pointFreezeMillis);
+        } catch (InterruptedException e) {}
+        env.ui.setFreeze(this.id, env.config.pointFreezeMillis);
 
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
@@ -153,9 +181,27 @@ public class Player implements Runnable {
      */
     public void penalty() {
         // TODO implement
+        try {
+            playerThread.sleep(env.config.penaltyFreezeMillis);
+        } catch (InterruptedException e) {}
+        env.ui.setFreeze(this.id, env.config.penaltyFreezeMillis);
     }
 
     public int score() {
         return score;
+    }
+
+    private PlayerSet getSet(){
+        int []setSlots = new int [env.config.featureSize];
+        int []setCards = new int [env.config.featureSize];
+        int index=0;
+        for (int i =0; i < table.playersTokens[this.id].length ; i++){
+            if (table.playersTokens[this.id][i]){
+                setSlots [index] = i;
+                setCards[index] = table.slotToCard[i];
+                index++;
+            }
+        }
+        return new PlayerSet(this.id, setSlots, setCards);
     }
 }
