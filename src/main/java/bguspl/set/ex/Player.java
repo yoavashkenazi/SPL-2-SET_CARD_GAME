@@ -62,9 +62,15 @@ public class Player implements Runnable {
     protected int tokensLeft; 
 
     /**
-     * 
+     * blocking queue that holds incoming actions. the queue is of capacity 3
      */
     private PlayerInputQueue incomingActionsQueue;
+
+    /**
+     * playerTokens[i] = true iff the player has a token in slot i
+     */
+    protected final boolean[] playerTokens;//we need to examine if this is needed
+
 
     private Dealer dealer;
 
@@ -86,6 +92,7 @@ public class Player implements Runnable {
         this.dealer = dealer;
         this.tokensLeft = env.config.featureSize;
         this.incomingActionsQueue = new PlayerInputQueue(env.config.featureSize);
+        this.playerTokens = new boolean[env.config.tableSize]; //we need to examine if this is needed
     }
 
     /**
@@ -96,23 +103,28 @@ public class Player implements Runnable {
         playerThread = Thread.currentThread();
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
         if (!human) createArtificialIntelligence();
-
+        
         while (!terminate) {
             // TODO implement main player loop
+            System.out.println("pulling from queue");
             Integer slot = incomingActionsQueue.take();
-            if (table.playersTokens[this.id][slot]){
-                table.removeToken(this.id, slot);
-                this.tokensLeft++;
+            System.out.println("After pulling from queue");
+            if (this.playerTokens[slot]){
+                this.removePlayerToken(slot);
             }
             else{
-                table.placeToken(this.id, slot);
-                this.tokensLeft--;
+                synchronized(this.table){
+                    System.out.println("player: "+ id + " slot: " + slot + " run");
+                    this.placePlayerToken(slot);
+                    // if the third token was placed, the newly formed set is sent to the dealer for checking.
+                    if (tokensLeft==0){
+                        dealer.addSetToCheck(this.getSet());
+                        dealer.wakeDealerThread();
+                    }
+                }
+                
             }
-            // if the third token was placed, the newly formed set is sent to the dealer for checking.
-            if (tokensLeft==0){
-                dealer.addSetToCheck(this.getSet());
-                dealer.wakeDealerThread();
-            }
+           
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -156,6 +168,7 @@ public class Player implements Runnable {
      */
     public void keyPressed(int slot) {
         // TODO implement
+        System.out.println("player: " + id + " slot: "+ slot + " keyPressed");
         this.incomingActionsQueue.put(slot);
     }
 
@@ -191,17 +204,44 @@ public class Player implements Runnable {
         return score;
     }
 
+    /**
+     * return the PlayerSet of the Player
+     */
     private PlayerSet getSet(){
         int []setSlots = new int [env.config.featureSize];
         int []setCards = new int [env.config.featureSize];
         int index=0;
-        for (int i =0; i < table.playersTokens[this.id].length ; i++){
-            if (table.playersTokens[this.id][i]){
+        for (int i =0; i < this.playerTokens.length ; i++){
+            if (this.playerTokens[i]){
                 setSlots [index] = i;
                 setCards[index] = table.slotToCard[i];
                 index++;
             }
         }
         return new PlayerSet(this.id, setSlots, setCards);
+    }
+
+    protected synchronized void removePlayerToken (int slot){
+        if (playerTokens[slot]){
+            this.playerTokens[slot] = false;
+            table.removeToken(this.id, slot);
+            this.tokensLeft++;
+        }
+    }
+
+    protected synchronized void placePlayerToken (int slot){
+        System.out.println("player: "+ id + " slot: " + slot + " placePlayerToken");
+        if (!playerTokens[slot]){
+            this.playerTokens[slot] = true;
+            table.placeToken(this.id, slot);
+            this.tokensLeft--;
+        }
+        
+    }
+
+    protected synchronized void removeAllPlayerTokens (){
+        for (int i = 0 ; i < playerTokens.length ; i++){
+            this.removePlayerToken(i);
+        }
     }
 }

@@ -19,20 +19,24 @@ class PlayerInputQueue{
         private Vector<Integer> vec_;
         private final int MAX; 
   
-        public PlayerInputQueue(int max) { MAX = max; } 
+        public PlayerInputQueue(int max) {
+                vec_ = new Vector<Integer>(); 
+                MAX = max; } 
   
         public synchronized int size(){ 
                 return vec_.size(); 
         } 
   
         public synchronized void put(Integer e){ 
+                System.out.println("before put");
                 while(size()>=MAX){ 
                         try{ 
                                 this.wait(); 
                         } catch (InterruptedException ignored){} 
                 } 
-  
+                System.out.println("before put, before add");
                 vec_.add(e); 
+                System.out.println("after put, after add");
                 // wakeup everybody. If someone is waiting in the get() 
                 // method, it can now perform the get. 
                 this.notifyAll(); 

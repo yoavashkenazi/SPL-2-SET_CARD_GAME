@@ -32,7 +32,8 @@ public class Table {
     /**
      * playersTokens[i][j] = true iff player i has a token in slot j
      */
-    protected final boolean[][] playersTokens;
+    
+    //protected final boolean[][] playersTokens;
 
     /**
      * the number of tokens each player gets in the game (equals to feature size)
@@ -52,7 +53,7 @@ public class Table {
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
 
-        this.playersTokens = new boolean[env.config.players][slotToCard.length];
+        //this.playersTokens = new boolean[env.config.players][slotToCard.length];
         this.numberOfTokens = env.config.featureSize;
     }
 
@@ -143,13 +144,9 @@ public class Table {
      * @param slot   - the slot on which to place the token.
      */
     public void placeToken(int player, int slot) {
-        //needs to be synced
         // TODO implement
-        if (canPlaceToken(player)){
-            playersTokens[player][slot]=true;
-            env.ui.placeToken(player, slot);
-        }
-        // after placing token, we need to awake the delaer (notify). (sleepUntilWokenOrTimeout();)
+        System.out.println("player: " + player + " slot: " + slot);
+        env.ui.placeToken(player, slot);
     }
 
     /**
@@ -161,30 +158,34 @@ public class Table {
     public boolean removeToken(int player, int slot) {
         //needs to be synced
         // TODO implement
-        if (playersTokens[player][slot]){
-            playersTokens[player][slot]=false;
-            env.ui.removeToken(player, slot);
-            return true;
-        }
-        return false;
+        // if (playersTokens[player][slot]){
+        //     // playersTokens[player][slot]=false;
+        //     env.ui.removeToken(player, slot);
+        //     return true;
+        // }
+        // return false;
+
+        //assuming therer is a token of the player in the slot.
+        env.ui.removeToken(player, slot);
+        return true;
     } 
 
-    //Removes all tokens of player playerId from the table
-    public void removePlayerTokens(int playerId){
-        //needs to be synced
-        for (int i = 0; i < playersTokens[playerId].length; i++) {
-            if (playersTokens[playerId][i]){
-                this.removeToken(playerId, i);
-            }
-        }
-    }
+    // //Removes all tokens of player playerId from the table
+    // public void removePlayerTokens(int playerId){
+    //     //needs to be synced
+    //     for (int i = 0; i < playersTokens[playerId].length; i++) {
+    //         if (playersTokens[playerId][i]){
+    //             this.removeToken(playerId, i);
+    //         }
+    //     }
+    // }
 
-    private boolean canPlaceToken(int playerId){
-        //needs to be synced
-        int counter = 0;
-        for (boolean hasToken : playersTokens[playerId]) {
-            if (hasToken) {counter++;}
-        }
-        return counter<env.config.featureSize;
-    }
+    // private boolean canPlaceToken(int playerId){
+    //     //needs to be synced
+    //     int counter = 0;
+    //     for (boolean hasToken : playersTokens[playerId]) {
+    //         if (hasToken) {counter++;}
+    //     }
+    //     return counter<env.config.featureSize;
+    // }
 }

@@ -1,10 +1,14 @@
 package bguspl.set.ex;
 
 import bguspl.set.Env;
+import bguspl.set.ThreadLogger;
+import bguspl.set.Util;
 
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -52,6 +56,8 @@ public class Dealer implements Runnable {
         this.table = table;
         this.players = players;
         deck = IntStream.range(0, env.config.deckSize).boxed().collect(Collectors.toList());
+        this.setsToCheck = new ConcurrentLinkedQueue<PlayerSet>();
+        reshuffleTime = System.currentTimeMillis()+60000;
     }
 
     /**
@@ -61,6 +67,11 @@ public class Dealer implements Runnable {
     public void run() {
         this.dealerThread = Thread.currentThread();
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
+        for (Player p : players){
+            ThreadLogger playerThread = new ThreadLogger(p, "player "+ p.id, env.logger);
+            playerThread.startWithLog();
+        }
+
         while (!shouldFinish()) {
             placeCardsOnTable();
             timerLoop();
@@ -105,12 +116,40 @@ public class Dealer implements Runnable {
      */
     private void removeCardsFromTable() {
         // TODO implement
-        
-        /// before checking a set, we need to check if the set is still relevent
-        // remove tokens
-        for (int player = 0 ; player < playersTokens.length ; player++ ) {
-            if (playersTokens[player][slot]){
-                this.removeToken(this.id, slot);
+        // gets the set to be checked
+        PlayerSet setToCheck = this.setsToCheck.poll();
+        if (setToCheck != null){
+            int[] slotSet = setToCheck.getSetSlots();
+            int[] cardsSet = setToCheck.getSetCards();
+            // checking the validity of the set (if the cards that were chosen by the player are the same cards that are currently on the table.)
+            boolean isValidSet = true;
+            for (int i = 0 ; i < slotSet.length ; i++){
+                if (cardsSet[i] != this.table.slotToCard[slotSet[i]]){
+                    isValidSet = false;
+                }
+            }
+            //if the set is valid
+            if (isValidSet){
+                //if the set is a legal set
+                if (env.util.testSet(cardsSet)){
+                    players[setToCheck.getPlayerId()].point();
+                    //removes the cards and tokens from the set`s slots.
+                    for (int slot : slotSet){
+                        this.table.removeCard(slot);
+                        //for each player, tries to remove his token from slot slot. 
+                        for (Player p : players) {
+                            p.removePlayerToken(slot);
+                        }
+                    }
+                }
+                else{
+                    //if the player selected an incorrect set, gives him a penalty and removes his tokens.
+                    players[setToCheck.getPlayerId()].penalty();
+                    //removes the cards and tokens from the set`s slots.
+                    for (int slot : slotSet){
+                        players[setToCheck.getPlayerId()].removePlayerToken(slot);
+                    }
+                }
             }
         }
     }
@@ -164,6 +203,12 @@ public class Dealer implements Runnable {
             deck.add(cardId);
             i++;
         }
+        //remove all of the tokens of the players from the table
+        for (Player p : players) {
+            p.removeAllPlayerTokens();
+        }
+        // after the cards have been collected, shuffle the deck
+        Collections.shuffle(deck);
     }
 
     /**
