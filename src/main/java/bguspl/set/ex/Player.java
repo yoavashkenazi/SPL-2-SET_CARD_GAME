@@ -159,6 +159,7 @@ public class Player implements Runnable {
     public void terminate() {
         // TODO implement
         this.terminate=true;
+        //we need to check for interruped
     }
 
     /**
