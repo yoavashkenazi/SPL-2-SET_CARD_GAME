@@ -28,15 +28,15 @@ class PlayerInputQueue{
         } 
   
         public synchronized void put(Integer e){ 
-                System.out.println("before put");
+                //System.out.println("before put");
                 while(size()>=MAX){ 
                         try{ 
                                 this.wait(); 
                         } catch (InterruptedException ignored){} 
                 } 
-                System.out.println("before put, before add");
+                //System.out.println("before put, before add");
                 vec_.add(e); 
-                System.out.println("after put, after add");
+                //System.out.println("after put, after add");
                 // wakeup everybody. If someone is waiting in the get() 
                 // method, it can now perform the get. 
                 this.notifyAll(); 

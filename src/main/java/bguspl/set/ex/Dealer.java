@@ -117,6 +117,7 @@ public class Dealer implements Runnable {
     private void removeCardsFromTable() {
         // TODO implement
         // gets the set to be checked
+        //System.out.println("removeCardsFromTable");
         PlayerSet setToCheck = this.setsToCheck.poll();
         if (setToCheck != null){
             int[] slotSet = setToCheck.getSetSlots();
@@ -172,14 +173,15 @@ public class Dealer implements Runnable {
     private void sleepUntilWokenOrTimeout() {
         // TODO implement
         try {
-            Thread.sleep(10);
-        } catch (InterruptedException e) {}
+            this.dealerThread.sleep(1000);
+        } catch (InterruptedException e) {System.out.println("dealer interupted");}
     }
 
     /**
      * Reset and/or update the countdown and the countdown display.
      */
     private void updateTimerDisplay(boolean reset) {
+        //System.out.println("updateTimer");
         // TODO implement
         //if the timer needs to be reseted
         if (reset){
@@ -189,6 +191,9 @@ public class Dealer implements Runnable {
         //else, update the timer
         else{
             env.ui.setCountdown(reshuffleTime-System.currentTimeMillis(), reshuffleTime-System.currentTimeMillis()<=10);
+        }
+        for (Player player : players) {
+            env.ui.setFreeze(player.id, player.timeToFreeze-System.currentTimeMillis());
         }
     }
 
@@ -240,6 +245,7 @@ public class Dealer implements Runnable {
 
     protected void wakeDealerThread (){
         if (this.dealerThread != null){
+            System.out.println("wakeDealerThread method");
             this.dealerThread.interrupt();
         }
     }

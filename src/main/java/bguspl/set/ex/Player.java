@@ -71,6 +71,10 @@ public class Player implements Runnable {
      */
     protected final boolean[] playerTokens;//we need to examine if this is needed
 
+    private volatile long currentFreezeTime;
+    
+    protected long timeToFreeze;
+
 
     private Dealer dealer;
 
@@ -89,6 +93,7 @@ public class Player implements Runnable {
         this.id = id;
         this.human = human;
 
+        this.currentFreezeTime = 0;
         this.dealer = dealer;
         this.tokensLeft = env.config.featureSize;
         this.incomingActionsQueue = new PlayerInputQueue(env.config.featureSize);
@@ -103,18 +108,26 @@ public class Player implements Runnable {
         playerThread = Thread.currentThread();
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
         if (!human) createArtificialIntelligence();
-        
         while (!terminate) {
+            System.out.println("player run while");
             // TODO implement main player loop
-            System.out.println("pulling from queue");
+            //System.out.println("pulling from queue");
             Integer slot = incomingActionsQueue.take();
-            System.out.println("After pulling from queue");
+            long freezeTimeDelta = this.timeToFreeze-System.currentTimeMillis();
+            if (freezeTimeDelta>0){
+                try {
+                    Thread.sleep(freezeTimeDelta);
+                } catch (InterruptedException e) {}
+                this.currentFreezeTime = 0;
+            }
+            System.out.println("player run after take");
+            //System.out.println("After pulling from queue");
             if (this.playerTokens[slot]){
                 this.removePlayerToken(slot);
             }
             else{
                 synchronized(this.table){
-                    System.out.println("player: "+ id + " slot: " + slot + " run");
+                    //System.out.println("player: "+ id + " slot: " + slot + " run");
                     this.placePlayerToken(slot);
                     // if the third token was placed, the newly formed set is sent to the dealer for checking.
                     if (tokensLeft==0){
@@ -122,9 +135,7 @@ public class Player implements Runnable {
                         dealer.wakeDealerThread();
                     }
                 }
-                
             }
-           
         }
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -169,8 +180,11 @@ public class Player implements Runnable {
      */
     public void keyPressed(int slot) {
         // TODO implement
-        System.out.println("player: " + id + " slot: "+ slot + " keyPressed");
-        this.incomingActionsQueue.put(slot);
+        //System.out.println("player: " + id + " slot: "+ slot + " keyPressed");
+        //only if the player is not frozen, the action is addad to the queue.
+        if (timeToFreeze-System.currentTimeMillis()<0){
+            this.incomingActionsQueue.put(slot);
+        }
     }
 
     /**
@@ -181,10 +195,9 @@ public class Player implements Runnable {
      */
     public void point() {
         // TODO implement
-        try {
-            this.playerThread.sleep(env.config.pointFreezeMillis);
-        } catch (InterruptedException e) {}
+        this.currentFreezeTime = env.config.pointFreezeMillis;
         env.ui.setFreeze(this.id, env.config.pointFreezeMillis);
+        this.timeToFreeze = System.currentTimeMillis() + env.config.pointFreezeMillis;
 
         int ignored = table.countCards(); // this part is just for demonstration in the unit tests
         env.ui.setScore(id, ++score);
@@ -194,11 +207,11 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
+        System.out.println("penalty");
         // TODO implement
-        try {
-            this.playerThread.sleep(env.config.penaltyFreezeMillis*3);
-        } catch (InterruptedException e) {System.out.println("player inyerupted");}
-        env.ui.setFreeze(this.id, env.config.penaltyFreezeMillis);
+        currentFreezeTime = env.config.penaltyFreezeMillis*3;
+        env.ui.setFreeze(this.id, env.config.penaltyFreezeMillis*3);
+        this.timeToFreeze = System.currentTimeMillis() + env.config.penaltyFreezeMillis*3;
     }
 
     public int score() {
