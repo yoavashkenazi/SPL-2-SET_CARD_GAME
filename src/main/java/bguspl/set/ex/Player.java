@@ -182,7 +182,7 @@ public class Player implements Runnable {
     public void point() {
         // TODO implement
         try {
-            playerThread.sleep(env.config.pointFreezeMillis);
+            this.playerThread.sleep(env.config.pointFreezeMillis);
         } catch (InterruptedException e) {}
         env.ui.setFreeze(this.id, env.config.pointFreezeMillis);
 
@@ -196,8 +196,8 @@ public class Player implements Runnable {
     public void penalty() {
         // TODO implement
         try {
-            playerThread.sleep(env.config.penaltyFreezeMillis);
-        } catch (InterruptedException e) {}
+            this.playerThread.sleep(env.config.penaltyFreezeMillis*3);
+        } catch (InterruptedException e) {System.out.println("player inyerupted");}
         env.ui.setFreeze(this.id, env.config.penaltyFreezeMillis);
     }
 
