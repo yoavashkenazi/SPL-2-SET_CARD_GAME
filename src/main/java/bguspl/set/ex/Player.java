@@ -109,25 +109,26 @@ public class Player implements Runnable {
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
         if (!human) createArtificialIntelligence();
         while (!terminate) {
-            System.out.println("player run while");
             // TODO implement main player loop
-            //System.out.println("pulling from queue");
+            //taking an action from the actions queue.
             Integer slot = incomingActionsQueue.take();
-            long freezeTimeDelta = this.timeToFreeze-System.currentTimeMillis();
-            if (freezeTimeDelta>0){
-                try {
-                    Thread.sleep(freezeTimeDelta);
-                } catch (InterruptedException e) {}
-                this.currentFreezeTime = 0;
-            }
-            System.out.println("player run after take");
-            //System.out.println("After pulling from queue");
+            //checking if the player is in freeze time
+            // long freezeTimeDelta = this.timeToFreeze-System.currentTimeMillis();
+            // if (freezeTimeDelta>0){
+            //     // if he is frozen, sleep for as much time that is needed 
+            //     try {
+            //         Thread.sleep(freezeTimeDelta);
+            //     } catch (InterruptedException e) {}
+            //     this.currentFreezeTime = 0;
+            // }
+
+            //if there is a token on the slot -> remove the token
             if (this.playerTokens[slot]){
                 this.removePlayerToken(slot);
             }
+
             else{
                 synchronized(this.table){
-                    //System.out.println("player: "+ id + " slot: " + slot + " run");
                     this.placePlayerToken(slot);
                     // if the third token was placed, the newly formed set is sent to the dealer for checking.
                     if (tokensLeft==0){
@@ -181,7 +182,7 @@ public class Player implements Runnable {
     public void keyPressed(int slot) {
         // TODO implement
         //System.out.println("player: " + id + " slot: "+ slot + " keyPressed");
-        //only if the player is not frozen, the action is addad to the queue.
+        //only if the player is not frozen, the action is added to the queue.
         if (timeToFreeze-System.currentTimeMillis()<0){
             this.incomingActionsQueue.put(slot);
         }
@@ -244,8 +245,7 @@ public class Player implements Runnable {
     }
 
     protected synchronized void placePlayerToken (int slot){
-        System.out.println("player: "+ id + " slot: " + slot + " placePlayerToken");
-        if (!playerTokens[slot]){
+        if (!playerTokens[slot] && this.table.slotToCard[slot]!=-1){
             this.playerTokens[slot] = true;
             table.placeToken(this.id, slot);
             this.tokensLeft--;

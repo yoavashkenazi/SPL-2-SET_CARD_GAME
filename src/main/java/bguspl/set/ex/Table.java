@@ -131,10 +131,10 @@ public class Table {
         } catch (InterruptedException ignored) {}
 
         // TODO implement
-        cardToSlot[slotToCard[slot]] = -1;
-        slotToCard[slot] = -1;
-        
-
+        if (slotToCard[slot] != -1){
+            cardToSlot[slotToCard[slot]] = -1;
+            slotToCard[slot] = -1;
+        }
         env.ui.removeCard(slot);
     }
 

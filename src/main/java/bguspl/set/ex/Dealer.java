@@ -57,7 +57,7 @@ public class Dealer implements Runnable {
         this.players = players;
         deck = IntStream.range(0, env.config.deckSize).boxed().collect(Collectors.toList());
         this.setsToCheck = new ConcurrentLinkedQueue<PlayerSet>();
-        reshuffleTime = System.currentTimeMillis()+60000;
+        reshuffleTime = System.currentTimeMillis()+15000;
     }
 
     /**
@@ -74,6 +74,7 @@ public class Dealer implements Runnable {
 
         while (!shouldFinish()) {
             placeCardsOnTable();
+            updateTimerDisplay(true);
             timerLoop();
             updateTimerDisplay(true);
             removeAllCardsFromTable();
@@ -136,20 +137,17 @@ public class Dealer implements Runnable {
                     players[setToCheck.getPlayerId()].point();
                     //removes the cards and tokens from the set`s slots.
                     for (int slot : slotSet){
-                        this.table.removeCard(slot);
                         //for each player, tries to remove his token from slot slot. 
                         for (Player p : players) {
                             p.removePlayerToken(slot);
                         }
+                        this.table.removeCard(slot);
                     }
+                    this.updateTimerDisplay(true);
                 }
                 else{
                     //if the player selected an incorrect set, gives him a penalty and removes his tokens.
                     players[setToCheck.getPlayerId()].penalty();
-                    //removes the cards and tokens from the set`s slots.
-                    for (int slot : slotSet){
-                        players[setToCheck.getPlayerId()].removePlayerToken(slot);
-                    }
                 }
             }
         }
@@ -173,7 +171,7 @@ public class Dealer implements Runnable {
     private void sleepUntilWokenOrTimeout() {
         // TODO implement
         try {
-            this.dealerThread.sleep(1000);
+            this.dealerThread.sleep(10);
         } catch (InterruptedException e) {System.out.println("dealer interupted");}
     }
 
@@ -185,13 +183,16 @@ public class Dealer implements Runnable {
         // TODO implement
         //if the timer needs to be reseted
         if (reset){
-            reshuffleTime = reshuffleTime + 60000;
-            env.ui.setCountdown(reshuffleTime-System.currentTimeMillis(), reshuffleTime-System.currentTimeMillis()<=10);
+            reshuffleTime = System.currentTimeMillis() + 15000;
         }
-        //else, update the timer
-        else{
-            env.ui.setCountdown(reshuffleTime-System.currentTimeMillis(), reshuffleTime-System.currentTimeMillis()<=10);
+        long timeleft = reshuffleTime-System.currentTimeMillis();
+        //ensuring the timer wwont display negative numbers.
+        if (timeleft<0){
+            timeleft = 0;
         }
+        //updating the timer
+        env.ui.setCountdown(timeleft, reshuffleTime-System.currentTimeMillis()<=10000);
+        //updating the freezing time of each player.
         for (Player player : players) {
             env.ui.setFreeze(player.id, player.timeToFreeze-System.currentTimeMillis());
         }
@@ -201,16 +202,18 @@ public class Dealer implements Runnable {
      * Returns all the cards from the table to the deck.
      */
     private void removeAllCardsFromTable() {
-        int i = 0;
-        //for each card, removes the card from the table and adds it to the deck
-        for (Integer cardId : table.slotToCard) {
-            table.removeCard(i);
-            deck.add(cardId);
-            i++;
-        }
         //remove all of the tokens of the players from the table
         for (Player p : players) {
             p.removeAllPlayerTokens();
+        }
+        int i = 0;
+        //for each card, removes the card from the table and adds it to the deck
+        for (Integer cardId : table.slotToCard) {
+            if (cardId!=-1){
+                table.removeCard(i);
+                deck.add(cardId);
+            }
+            i++;
         }
         // after the cards have been collected, shuffle the deck
         Collections.shuffle(deck);
@@ -237,6 +240,9 @@ public class Dealer implements Runnable {
         }
         //announces the winners.
         env.ui.announceWinner((winnersList.stream().mapToInt(Integer::intValue)).toArray());
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {}
     }
 
     public void addSetToCheck (PlayerSet setToCheck){
