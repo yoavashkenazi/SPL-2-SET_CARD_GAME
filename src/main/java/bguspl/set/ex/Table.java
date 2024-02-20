@@ -33,12 +33,19 @@ public class Table {
      * playersTokens[i][j] = true iff player i has a token in slot j
      */
     
-    //protected final boolean[][] playersTokens;
+    protected final boolean[][] playersTokens;
 
     /**
      * the number of tokens each player gets in the game (equals to feature size)
      */
     protected final int numberOfTokens;
+
+    /**
+     * members for RWL
+     */
+    protected int activeReaders = 0;
+    protected int activeWriters = 0;
+    protected int waitingWriters = 0;
 
     /**
      * Constructor for testing.
@@ -53,7 +60,7 @@ public class Table {
         this.slotToCard = slotToCard;
         this.cardToSlot = cardToSlot;
 
-        //this.playersTokens = new boolean[env.config.players][slotToCard.length];
+        this.playersTokens = new boolean[env.config.players][env.config.tableSize];
         this.numberOfTokens = env.config.featureSize;
     }
 
@@ -130,12 +137,14 @@ public class Table {
             Thread.sleep(env.config.tableDelayMillis);
         } catch (InterruptedException ignored) {}
 
+        this.beforeWrite();
         // TODO implement
         if (slotToCard[slot] != -1){
             cardToSlot[slotToCard[slot]] = -1;
             slotToCard[slot] = -1;
         }
         env.ui.removeCard(slot);
+        this.afterWrite();
     }
 
     /**
@@ -145,8 +154,10 @@ public class Table {
      */
     public void placeToken(int player, int slot) {
         // TODO implement
-        System.out.println("player: " + player + " slot: " + slot);
-        env.ui.placeToken(player, slot);
+        if (this.slotToCard[slot]!=-1){
+            this.playersTokens[player][slot]=true;
+            env.ui.placeToken(player, slot);
+        }
     }
 
     /**
@@ -158,16 +169,12 @@ public class Table {
     public boolean removeToken(int player, int slot) {
         //needs to be synced
         // TODO implement
-        // if (playersTokens[player][slot]){
-        //     // playersTokens[player][slot]=false;
-        //     env.ui.removeToken(player, slot);
-        //     return true;
-        // }
-        // return false;
-
-        //assuming therer is a token of the player in the slot.
-        env.ui.removeToken(player, slot);
-        return true;
+        if (this.playersTokens[player][slot]){
+            playersTokens[player][slot]=false;
+            env.ui.removeToken(player, slot);
+            return true;
+        }
+        return false;
     } 
 
     // //Removes all tokens of player playerId from the table
@@ -188,4 +195,40 @@ public class Table {
     //     }
     //     return counter<env.config.featureSize;
     // }
+
+
+    //RWL
+    protected synchronized void beforeRead() {
+        while (! (waitingWriters == 0 && activeWriters == 0)) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+            }
+        }
+        activeReaders++;
+      }
+     
+    protected synchronized void afterRead()  { 
+        activeReaders--;
+        notifyAll();  
+      }
+     
+    protected synchronized void beforeWrite() {
+        waitingWriters++;
+        while (! (activeReaders == 0 && activeWriters == 0)) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+            }
+        }
+        waitingWriters--;
+        activeWriters++;
+      }
+     
+    protected synchronized void afterWrite() { 
+        activeWriters--;
+        notifyAll(); 
+      }
+    
+    
 }

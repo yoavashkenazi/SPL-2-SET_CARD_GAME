@@ -57,7 +57,7 @@ public class Dealer implements Runnable {
         this.players = players;
         deck = IntStream.range(0, env.config.deckSize).boxed().collect(Collectors.toList());
         this.setsToCheck = new ConcurrentLinkedQueue<PlayerSet>();
-        reshuffleTime = System.currentTimeMillis()+15000;
+        reshuffleTime = System.currentTimeMillis()+env.config.turnTimeoutMillis;
     }
 
     /**
@@ -71,13 +71,17 @@ public class Dealer implements Runnable {
             ThreadLogger playerThread = new ThreadLogger(p, "player "+ p.id, env.logger);
             playerThread.startWithLog();
         }
-
         while (!shouldFinish()) {
             placeCardsOnTable();
             updateTimerDisplay(true);
             timerLoop();
             updateTimerDisplay(true);
             removeAllCardsFromTable();
+        }
+        //terminating all threads gracefully and in reverse order to the order they were created in.
+        for (int i = players.length-1 ; i >=0 ; i--) {
+            players[i].terminate();
+            System.out.println("player " + i + " have been terminated");
         }
         announceWinners();
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -139,6 +143,7 @@ public class Dealer implements Runnable {
                     for (int slot : slotSet){
                         //for each player, tries to remove his token from slot slot. 
                         for (Player p : players) {
+                            p.waitingForDealerCheck = false;
                             p.removePlayerToken(slot);
                         }
                         this.table.removeCard(slot);
@@ -147,7 +152,9 @@ public class Dealer implements Runnable {
                 }
                 else{
                     //if the player selected an incorrect set, gives him a penalty and removes his tokens.
+                    System.out.println("before penalty is called on player: " + setToCheck.getPlayerId());
                     players[setToCheck.getPlayerId()].penalty();
+                    players[setToCheck.getPlayerId()].waitingForDealerCheck = false;
                 }
             }
         }
@@ -160,7 +167,9 @@ public class Dealer implements Runnable {
         //run on each slot and if the slot is empty and there is a card in the deck, place the card from the deck to the slot.
         for (int i = 0 ; i < env.config.tableSize ; i++) {
             if (table.slotToCard[i]==-1 && !deck.isEmpty()){
+                this.table.beforeWrite();
                 table.placeCard(deck.remove(0), i);
+                this.table.afterWrite();
             }
         }
     }
@@ -183,7 +192,7 @@ public class Dealer implements Runnable {
         // TODO implement
         //if the timer needs to be reseted
         if (reset){
-            reshuffleTime = System.currentTimeMillis() + 15000;
+            reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
         }
         long timeleft = reshuffleTime-System.currentTimeMillis();
         //ensuring the timer wwont display negative numbers.
@@ -191,7 +200,7 @@ public class Dealer implements Runnable {
             timeleft = 0;
         }
         //updating the timer
-        env.ui.setCountdown(timeleft, reshuffleTime-System.currentTimeMillis()<=10000);
+        env.ui.setCountdown(timeleft, reshuffleTime-System.currentTimeMillis()<env.config.turnTimeoutWarningMillis);
         //updating the freezing time of each player.
         for (Player player : players) {
             env.ui.setFreeze(player.id, player.timeToFreeze-System.currentTimeMillis());
@@ -203,7 +212,9 @@ public class Dealer implements Runnable {
      */
     private void removeAllCardsFromTable() {
         //remove all of the tokens of the players from the table
+        this.table.beforeWrite();
         for (Player p : players) {
+            p.waitingForDealerCheck=false;
             p.removeAllPlayerTokens();
         }
         int i = 0;
@@ -215,6 +226,7 @@ public class Dealer implements Runnable {
             }
             i++;
         }
+        this.table.afterWrite();
         // after the cards have been collected, shuffle the deck
         Collections.shuffle(deck);
     }
@@ -240,9 +252,9 @@ public class Dealer implements Runnable {
         }
         //announces the winners.
         env.ui.announceWinner((winnersList.stream().mapToInt(Integer::intValue)).toArray());
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {}
+        // try {
+        //     Thread.sleep(5000);
+        // } catch (InterruptedException e) {}
     }
 
     public void addSetToCheck (PlayerSet setToCheck){
