@@ -113,19 +113,13 @@ public class Player implements Runnable {
         while (!terminate) {
             // TODO implement main player loop
             //taking an action from the actions queue.
+            //System.out.println("player " + id + "before take");
             Integer slot = incomingActionsQueue.take();
-            //checking if the player is in freeze time
-            // long freezeTimeDelta = this.timeToFreeze-System.currentTimeMillis();
-            // if (freezeTimeDelta>0){
-            //     // if he is frozen, sleep for as much time that is needed 
-            //     try {
-            //         Thread.sleep(freezeTimeDelta);
-            //     } catch (InterruptedException e) {}
-            //     this.currentFreezeTime = 0;
-            // }
-            
             //if the game is done, exit the loop.
-            if (terminate){break;}
+            if (terminate){
+                System.out.println("player " + id + "terminate if");
+                break;
+            }
             //if there is a token on the slot -> remove the token
             if (this.table.playersTokens[this.id][slot]){
                 this.removePlayerToken(slot);
@@ -144,6 +138,7 @@ public class Player implements Runnable {
                 this.table.afterRead();    
             }
         }
+        System.out.println("after player " + id + " run while");
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
     }
@@ -178,8 +173,13 @@ public class Player implements Runnable {
     public void terminate() {
         // TODO implement
         this.terminate=true;
-        this.incomingActionsQueue.put(0);
-        //we need to check for interruped
+        System.out.println("player " + id + " before put 0");
+        //this.incomingActionsQueue.put(0);
+        this.incomingActionsQueue.terminate();
+        System.out.println("player " + id + " after put 0");
+        try {
+            this.playerThread.join();
+        } catch (InterruptedException e) {}
     }
 
     /**

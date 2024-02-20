@@ -79,7 +79,7 @@ public class Dealer implements Runnable {
             removeAllCardsFromTable();
         }
         //terminating all threads gracefully and in reverse order to the order they were created in.
-        for (int i = players.length-1 ; i >=0 ; i--) {
+        for (int i = (players.length-1) ; i >= 0 ; i--) {
             players[i].terminate();
             System.out.println("player " + i + " have been terminated");
         }
@@ -140,6 +140,7 @@ public class Dealer implements Runnable {
                 if (env.util.testSet(cardsSet)){
                     players[setToCheck.getPlayerId()].point();
                     //removes the cards and tokens from the set`s slots.
+                    this.table.beforeWrite();
                     for (int slot : slotSet){
                         //for each player, tries to remove his token from slot slot. 
                         for (Player p : players) {
@@ -148,6 +149,8 @@ public class Dealer implements Runnable {
                         }
                         this.table.removeCard(slot);
                     }
+                    this.table.afterWrite();
+                    //if a set was found, update the timer
                     this.updateTimerDisplay(true);
                 }
                 else{
@@ -170,6 +173,10 @@ public class Dealer implements Runnable {
                 this.table.beforeWrite();
                 table.placeCard(deck.remove(0), i);
                 this.table.afterWrite();
+                //every card, update the freeze timer of the players.
+                for (Player player : players) {
+                    env.ui.setFreeze(player.id, player.timeToFreeze-System.currentTimeMillis());
+                }
             }
         }
     }
@@ -217,12 +224,17 @@ public class Dealer implements Runnable {
             p.waitingForDealerCheck=false;
             p.removeAllPlayerTokens();
         }
+        
         int i = 0;
         //for each card, removes the card from the table and adds it to the deck
         for (Integer cardId : table.slotToCard) {
             if (cardId!=-1){
                 table.removeCard(i);
                 deck.add(cardId);
+                //every card, update the players freeze timer
+                for (Player player : players) {
+                    env.ui.setFreeze(player.id, player.timeToFreeze-System.currentTimeMillis());
+                }
             }
             i++;
         }

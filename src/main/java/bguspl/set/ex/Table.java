@@ -137,14 +137,12 @@ public class Table {
             Thread.sleep(env.config.tableDelayMillis);
         } catch (InterruptedException ignored) {}
 
-        this.beforeWrite();
         // TODO implement
         if (slotToCard[slot] != -1){
             cardToSlot[slotToCard[slot]] = -1;
             slotToCard[slot] = -1;
         }
         env.ui.removeCard(slot);
-        this.afterWrite();
     }
 
     /**
