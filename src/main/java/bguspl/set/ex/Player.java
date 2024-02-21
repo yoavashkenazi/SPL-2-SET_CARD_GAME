@@ -173,10 +173,9 @@ public class Player implements Runnable {
     public void terminate() {
         // TODO implement
         this.terminate=true;
-        System.out.println("player " + id + " before put 0");
-        //this.incomingActionsQueue.put(0);
+        //terminating the actions queue.
         this.incomingActionsQueue.terminate();
-        System.out.println("player " + id + " after put 0");
+        //ending the player thread gracfully.
         try {
             this.playerThread.join();
         } catch (InterruptedException e) {}

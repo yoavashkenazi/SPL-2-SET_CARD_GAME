@@ -4,6 +4,8 @@ import bguspl.set.Env;
 import bguspl.set.ThreadLogger;
 import bguspl.set.Util;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -49,6 +51,11 @@ public class Dealer implements Runnable {
      */
     private Queue<PlayerSet> setsToCheck;
 
+    /**
+     * Saves the time of the last action (reshuffle of set collected)
+     */
+    private long lastActionTime = 0;
+
     private Thread dealerThread;
 
     public Dealer(Env env, Table table, Player[] players) {
@@ -57,7 +64,9 @@ public class Dealer implements Runnable {
         this.players = players;
         deck = IntStream.range(0, env.config.deckSize).boxed().collect(Collectors.toList());
         this.setsToCheck = new ConcurrentLinkedQueue<PlayerSet>();
-        reshuffleTime = System.currentTimeMillis()+env.config.turnTimeoutMillis;
+        if (env.config.turnTimeoutMillis>0){
+            reshuffleTime = System.currentTimeMillis()+env.config.turnTimeoutMillis;
+        }
     }
 
     /**
@@ -67,10 +76,13 @@ public class Dealer implements Runnable {
     public void run() {
         this.dealerThread = Thread.currentThread();
         env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
+        //creating and starting the players threads.
         for (Player p : players){
             ThreadLogger playerThread = new ThreadLogger(p, "player "+ p.id, env.logger);
             playerThread.startWithLog();
         }
+        //shuffling the deck for the first time
+        Collections.shuffle(deck);
         while (!shouldFinish()) {
             placeCardsOnTable();
             updateTimerDisplay(true);
@@ -130,7 +142,7 @@ public class Dealer implements Runnable {
             // checking the validity of the set (if the cards that were chosen by the player are the same cards that are currently on the table.)
             boolean isValidSet = true;
             for (int i = 0 ; i < slotSet.length ; i++){
-                if (cardsSet[i] != this.table.slotToCard[slotSet[i]]){
+                if (slotSet[i]<0 || cardsSet[i] != this.table.slotToCard[slotSet[i]]){
                     isValidSet = false;
                 }
             }
@@ -167,17 +179,30 @@ public class Dealer implements Runnable {
      * Check if any cards can be removed from the deck and placed on the table.
      */
     private void placeCardsOnTable() {
+        //creating a random order of cards placing.
+        List<Integer> slotsList = new LinkedList<Integer>();
+        for (int i = 0 ; i < env.config.tableSize ; i++){
+            slotsList.add(i);
+        }
+        Collections.shuffle(slotsList);
+        //indicates if the table has been changed in this turn.
+        boolean tableHasBeenChanged = false;
         //run on each slot and if the slot is empty and there is a card in the deck, place the card from the deck to the slot.
-        for (int i = 0 ; i < env.config.tableSize ; i++) {
+        for (Integer i : slotsList) {
             if (table.slotToCard[i]==-1 && !deck.isEmpty()){
                 this.table.beforeWrite();
                 table.placeCard(deck.remove(0), i);
                 this.table.afterWrite();
+                tableHasBeenChanged = true;
                 //every card, update the freeze timer of the players.
                 for (Player player : players) {
                     env.ui.setFreeze(player.id, player.timeToFreeze-System.currentTimeMillis());
                 }
             }
+        }
+        //if the table has been changed and hints are enabled
+        if (tableHasBeenChanged && env.config.hints){
+           this.table.hints(); 
         }
     }
 
@@ -186,28 +211,68 @@ public class Dealer implements Runnable {
      */
     private void sleepUntilWokenOrTimeout() {
         // TODO implement
-        try {
-            this.dealerThread.sleep(10);
-        } catch (InterruptedException e) {System.out.println("dealer interupted");}
+        if (setsToCheck.isEmpty()){
+            try {
+                this.dealerThread.sleep(10);
+            } catch (InterruptedException e) {System.out.println("dealer interupted");}
+        }
+        
     }
 
     /**
      * Reset and/or update the countdown and the countdown display.
      */
     private void updateTimerDisplay(boolean reset) {
-        //System.out.println("updateTimer");
         // TODO implement
-        //if the timer needs to be reseted
-        if (reset){
-            reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
+        //GAME MODE: 1
+        if (env.config.turnTimeoutMillis<0){
+            //creating a list of the card that are on the table.
+            List<Integer> integerList1 = Arrays.stream(this.table.slotToCard)
+                                            .filter(num -> num != -1)
+                                            .collect(Collectors.toList());
+            //if there aren't sets on the table, reshuffle.
+            if (env.util.findSets(integerList1, 1).isEmpty()){
+                reshuffleTime = System.currentTimeMillis()-1;
+            }
+            else{
+                reshuffleTime = Long.MAX_VALUE;
+            }
         }
-        long timeleft = reshuffleTime-System.currentTimeMillis();
-        //ensuring the timer wwont display negative numbers.
-        if (timeleft<0){
-            timeleft = 0;
+
+        //GAME MODE: 2 (regular)
+        else if (env.config.turnTimeoutMillis>0){
+            //if the timer needs to be reseted
+            if (reset){
+                reshuffleTime = System.currentTimeMillis() + env.config.turnTimeoutMillis;
+            }
+            long timeleft = reshuffleTime-System.currentTimeMillis();
+            //ensuring the timer wont display negative numbers.
+            if (timeleft<0){
+                timeleft = 0;
+            }
+            //updating the timer
+            env.ui.setCountdown(timeleft, reshuffleTime-System.currentTimeMillis()<env.config.turnTimeoutWarningMillis);
         }
-        //updating the timer
-        env.ui.setCountdown(timeleft, reshuffleTime-System.currentTimeMillis()<env.config.turnTimeoutWarningMillis);
+
+        //GAME MODE: 3
+        else if (env.config.turnTimeoutMillis==0){
+            //if an action was commited, reset the timer.
+            if (reset){
+                lastActionTime = System.currentTimeMillis();
+            }
+            env.ui.setCountdown(System.currentTimeMillis()-lastActionTime, false);
+            //creating a list of the card that are on the table.
+            List<Integer> integerList1 = Arrays.stream(this.table.slotToCard)
+                                            .filter(num -> num != -1)
+                                            .collect(Collectors.toList());
+            //if there aren't sets on the table, reshuffle.
+            if (env.util.findSets(integerList1, 1).isEmpty()){
+                reshuffleTime = System.currentTimeMillis()-1;
+            }
+            else{
+                reshuffleTime = Long.MAX_VALUE;
+            }
+        }
         //updating the freezing time of each player.
         for (Player player : players) {
             env.ui.setFreeze(player.id, player.timeToFreeze-System.currentTimeMillis());
@@ -218,6 +283,13 @@ public class Dealer implements Runnable {
      * Returns all the cards from the table to the deck.
      */
     private void removeAllCardsFromTable() {
+        //creating a random order of cards removing.
+        List<Integer> slotsList = new LinkedList<Integer>();
+        for (int i = 0 ; i < env.config.tableSize ; i++){
+            slotsList.add(i);
+        }
+        Collections.shuffle(slotsList);
+
         //remove all of the tokens of the players from the table
         this.table.beforeWrite();
         for (Player p : players) {
@@ -225,18 +297,16 @@ public class Dealer implements Runnable {
             p.removeAllPlayerTokens();
         }
         
-        int i = 0;
         //for each card, removes the card from the table and adds it to the deck
-        for (Integer cardId : table.slotToCard) {
-            if (cardId!=-1){
-                table.removeCard(i);
-                deck.add(cardId);
-                //every card, update the players freeze timer
-                for (Player player : players) {
-                    env.ui.setFreeze(player.id, player.timeToFreeze-System.currentTimeMillis());
-                }
+        for (Integer slot : slotsList) {
+            if (this.table.slotToCard[slot]!=-1){
+                deck.add(this.table.slotToCard[slot]);
+                this.table.removeCard(slot);
             }
-            i++;
+            //every card, update the players freeze timer
+            for (Player player : players) {
+                env.ui.setFreeze(player.id, player.timeToFreeze-System.currentTimeMillis());
+            }
         }
         this.table.afterWrite();
         // after the cards have been collected, shuffle the deck

@@ -12,13 +12,19 @@ with a short description of:
 
 1. Fully supporting all configuration fields and avoiding the use of magic numbers
 
-We are not entitled to this bonus.
+1. We are supporting all con fields by not using specific numbers in the project. for example: the players tokens are saved in a matrix based on the number of players in each game.
+2. It is used in almost every class method.
+3. We tested each field separately by trying different values.
+We didnt use any magic numbers in the project.
 
 --------------------
 
 2. Terminating all threads (that you created) gracefully and in reverse order to the order they were created in.
 
-We are not entitled to this bonus.
+1. We used the join method in order to end all threads gracfully, and we made sure that the threads are completing thier "run" method once the game is terminated.
+1. We ended the players threads in reverse order by calling the terminate method from the last player to the first, and by using the join method.
+2. It was used mainly in the player class, in the terminate and run methods. Also it was implemented in the blocking queue mechanism.
+3. We tested it by looking at the logs, and also by printing.
 
 --------------------
 
@@ -27,7 +33,9 @@ config.turnTimeoutMillis < 0: display nothing.
 config.turnTimeoutMillis = 0: display a timer since the last action (reshuffle or set collected).
 Note: in modes without a countdown timer the dealer must ensure there is always at least one legal set on the table.
 
-We are not entitled to this bonus.
+1. We implemented it by conditioning the Dealer.updateTimerDisplay method, and by adding a member that saves the time the last action was commited.
+2. It was used in the updateTimerDisplay method in the dealer.
+3. We played many games with different configurations in each mode.
 
 --------------------
 
@@ -35,4 +43,8 @@ We are not entitled to this bonus.
 changed on the display, key input needs to be handled, etc.) and the only threads created by you are:
 1 thread per player + 1 additional thread for non-human players.
 
-We are not entitled to this bonus.
+1. We made sure that the threads do not wake up unless some actual job needs to be done by keeping the players threads in wait (at the blocking queue) until a key is pressed. (and also while he is in freeze)
+Also,we are allowing the dealer to sleep for a short while between times he is needed to update the time. (if a set is found in that time he is awakend by the player).
+We created 1 thread for each player and 1 additional thread for each AI player.
+2. It is used in the blocking queue design, in the player.keyPressed, and in the Dealer.wakeDealerThread method.
+3. We tested it by seeing that while a player is frozen or doesnt press any key, the thread is blocked.
