@@ -67,14 +67,13 @@ public class Player implements Runnable {
     protected PlayerInputQueue incomingActionsQueue;
 
     /**
-     * playerTokens[i] = true iff the player has a token in slot i
+     * the time the player is frozen until.
      */
-    //protected final boolean[] playerTokens;//we need to examine if this is needed
+    protected volatile long timeToFreeze;
 
-    //private volatile long currentFreezeTime;
-    
-    protected long timeToFreeze;
-
+    /**
+     * A flag marking that the player has selected a set and is waiting for the dealer to check it.
+     */
     protected volatile boolean waitingForDealerCheck;
 
 
@@ -95,11 +94,9 @@ public class Player implements Runnable {
         this.id = id;
         this.human = human;
 
-        //this.currentFreezeTime = 0;
         this.dealer = dealer;
         this.tokensLeft = env.config.featureSize;
         this.incomingActionsQueue = new PlayerInputQueue(env.config.featureSize);
-        //this.playerTokens = new boolean[env.config.tableSize]; //we need to examine if this is needed
     }
 
     /**
@@ -113,11 +110,9 @@ public class Player implements Runnable {
         while (!terminate) {
             // TODO implement main player loop
             //taking an action from the actions queue.
-            //System.out.println("player " + id + "before take");
             Integer slot = incomingActionsQueue.take();
             //if the game is done, exit the loop.
             if (terminate){
-                System.out.println("player " + id + "terminate if");
                 break;
             }
             //if there is a token on the slot -> remove the token
@@ -131,14 +126,12 @@ public class Player implements Runnable {
                 // if the third token was placed, the newly formed set is sent to the dealer for checking.
                 if (tokensLeft==0 && !this.waitingForDealerCheck){
                     this.waitingForDealerCheck = true;
-                    System.out.println("changing the flag to true");
                     dealer.addSetToCheck(this.getSet());
                     dealer.wakeDealerThread();
                 }
                 this.table.afterRead();    
             }
         }
-        System.out.println("after player " + id + " run while");
         if (!human) try { aiThread.join(); } catch (InterruptedException ignored) {}
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
     }
@@ -152,26 +145,19 @@ public class Player implements Runnable {
         aiThread = new Thread(() -> {
             env.logger.info("thread " + Thread.currentThread().getName() + " starting.");
             while (!terminate) {
-                // TODO implement player key press simulator
+                //Generates a random integer between 0 (inclusive) and tableSize (exclusive)
                 Random random = new Random();
-                this.keyPressed(random.nextInt(env.config.tableSize)); // Generates a random integer between 0 (inclusive) and tableSize (exclusive)
-                // try { //we need to check what does this lines means.
-                //     synchronized (this) {
-                //          wait();
-                //     }
-                // } catch (InterruptedException ignored) {}
+                this.keyPressed(random.nextInt(env.config.tableSize)); 
             }
             env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
         }, "computer-" + id);
         aiThread.start();
-        System.out.println("aithread finished: " + this.id);
     }
 
     /**
      * Called when the game should be terminated.
      */
     public void terminate() {
-        // TODO implement
         this.terminate=true;
         //terminating the actions queue.
         this.incomingActionsQueue.terminate();
@@ -187,8 +173,6 @@ public class Player implements Runnable {
      * @param slot - the slot corresponding to the key pressed.
      */
     public void keyPressed(int slot) {
-        // TODO implement
-        //System.out.println("player: " + id + " slot: "+ slot + " keyPressed");
         //only if the player is not frozen, the action is added to the queue.
         if (!this.waitingForDealerCheck && timeToFreeze-System.currentTimeMillis()<0){
             this.incomingActionsQueue.put(slot);
@@ -202,8 +186,6 @@ public class Player implements Runnable {
      * @post - the player's score is updated in the ui.
      */
     public void point() {
-        // TODO implement
-        //this.currentFreezeTime = env.config.pointFreezeMillis;
         env.ui.setFreeze(this.id, env.config.pointFreezeMillis);
         this.timeToFreeze = System.currentTimeMillis() + env.config.pointFreezeMillis;
 
@@ -215,9 +197,6 @@ public class Player implements Runnable {
      * Penalize a player and perform other related actions.
      */
     public void penalty() {
-        System.out.println("penalty");
-        // TODO implement
-        //currentFreezeTime = env.config.penaltyFreezeMillis;
         env.ui.setFreeze(this.id, env.config.penaltyFreezeMillis);
         this.timeToFreeze = System.currentTimeMillis() + env.config.penaltyFreezeMillis;
     }
@@ -233,14 +212,6 @@ public class Player implements Runnable {
         int []setSlots = new int [env.config.featureSize];
         int []setCards = new int [env.config.featureSize];
         int index=0;
-        // for (int i =0; i < this.playerTokens.length ; i++){
-        //     if (this.playerTokens[i]){
-        //         setSlots [index] = i;
-        //         setCards[index] = table.slotToCard[i];
-        //         index++;
-        //     }
-        // }
-
         for (int i =0; i < this.table.playersTokens[this.id].length ; i++){
             if (this.table.playersTokens[this.id][i]){
                 setSlots [index] = i;
@@ -251,25 +222,19 @@ public class Player implements Runnable {
         return new PlayerSet(this.id, setSlots, setCards);
     }
 
+    /**
+     * Method that wraps table.removeToken
+     */
     protected synchronized void removePlayerToken (int slot){
-        // if (playerTokens[slot]){
-        //     this.playerTokens[slot] = false;
-        //     table.removeToken(this.id, slot);
-        //     this.tokensLeft++;
-        // }
-        
         if (!this.waitingForDealerCheck && this.table.removeToken(this.id, slot)){
             this.tokensLeft++;
         }
     }
 
-    protected synchronized void placePlayerToken (int slot){
-        // if (!playerTokens[slot] && this.table.slotToCard[slot]!=-1){
-        //     this.playerTokens[slot] = true;
-        //     table.placeToken(this.id, slot);
-        //     this.tokensLeft--;
-        // }
-        
+    /**
+     * Method that wraps table.placeToken
+     */
+    protected synchronized void placePlayerToken (int slot){      
         if (this.tokensLeft > 0 && !this.waitingForDealerCheck && !this.table.playersTokens[this.id][slot] && this.table.slotToCard[slot]!=-1){
             this.table.placeToken(this.id, slot);
             this.tokensLeft--;

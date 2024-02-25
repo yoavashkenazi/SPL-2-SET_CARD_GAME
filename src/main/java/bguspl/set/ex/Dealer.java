@@ -64,6 +64,7 @@ public class Dealer implements Runnable {
         this.players = players;
         deck = IntStream.range(0, env.config.deckSize).boxed().collect(Collectors.toList());
         this.setsToCheck = new ConcurrentLinkedQueue<PlayerSet>();
+        //if the game mode is regular, set the first reshuffle time.
         if (env.config.turnTimeoutMillis>0){
             reshuffleTime = System.currentTimeMillis()+env.config.turnTimeoutMillis;
         }
@@ -93,7 +94,6 @@ public class Dealer implements Runnable {
         //terminating all threads gracefully and in reverse order to the order they were created in.
         for (int i = (players.length-1) ; i >= 0 ; i--) {
             players[i].terminate();
-            System.out.println("player " + i + " have been terminated");
         }
         announceWinners();
         env.logger.info("thread " + Thread.currentThread().getName() + " terminated.");
@@ -115,7 +115,6 @@ public class Dealer implements Runnable {
      * Called when the game should be terminated.
      */
     public void terminate() {
-        // TODO implement
         this.terminate = true;
     }
 
@@ -132,9 +131,7 @@ public class Dealer implements Runnable {
      * Checks cards should be removed from the table and removes them.
      */
     private void removeCardsFromTable() {
-        // TODO implement
         // gets the set to be checked
-        //System.out.println("removeCardsFromTable");
         PlayerSet setToCheck = this.setsToCheck.poll();
         if (setToCheck != null){
             int[] slotSet = setToCheck.getSetSlots();
@@ -167,7 +164,6 @@ public class Dealer implements Runnable {
                 }
                 else{
                     //if the player selected an incorrect set, gives him a penalty and removes his tokens.
-                    System.out.println("before penalty is called on player: " + setToCheck.getPlayerId());
                     players[setToCheck.getPlayerId()].penalty();
                     players[setToCheck.getPlayerId()].waitingForDealerCheck = false;
                 }
@@ -185,7 +181,7 @@ public class Dealer implements Runnable {
             slotsList.add(i);
         }
         Collections.shuffle(slotsList);
-        //indicates if the table has been changed in this turn.
+        //indicates if the table has been changed in this turn. (for hints update)
         boolean tableHasBeenChanged = false;
         //run on each slot and if the slot is empty and there is a card in the deck, place the card from the deck to the slot.
         for (Integer i : slotsList) {
@@ -193,6 +189,7 @@ public class Dealer implements Runnable {
                 this.table.beforeWrite();
                 table.placeCard(deck.remove(0), i);
                 this.table.afterWrite();
+                //mark that the table has been changed.
                 tableHasBeenChanged = true;
                 //every card, update the freeze timer of the players.
                 for (Player player : players) {
@@ -203,6 +200,7 @@ public class Dealer implements Runnable {
         //if the table has been changed and hints are enabled
         if (tableHasBeenChanged && env.config.hints){
            this.table.hints(); 
+           System.out.println("------------------------------");
         }
     }
 
@@ -210,11 +208,10 @@ public class Dealer implements Runnable {
      * Sleep for a fixed amount of time or until the thread is awakened for some purpose.
      */
     private void sleepUntilWokenOrTimeout() {
-        // TODO implement
         if (setsToCheck.isEmpty()){
             try {
-                this.dealerThread.sleep(10);
-            } catch (InterruptedException e) {System.out.println("dealer interupted");}
+                this.dealerThread.sleep(1);
+            } catch (InterruptedException e) {}
         }
         
     }
@@ -223,7 +220,6 @@ public class Dealer implements Runnable {
      * Reset and/or update the countdown and the countdown display.
      */
     private void updateTimerDisplay(boolean reset) {
-        // TODO implement
         //GAME MODE: 1
         if (env.config.turnTimeoutMillis<0){
             //creating a list of the card that are on the table.
@@ -317,7 +313,6 @@ public class Dealer implements Runnable {
      * Check who is/are the winner/s and displays them.
      */
     private void announceWinners() {
-        // TODO implement
         int maxScore = 0;
         //the updating list of players with the maximum score
         List<Integer> winnersList = new LinkedList<Integer>();
@@ -334,18 +329,20 @@ public class Dealer implements Runnable {
         }
         //announces the winners.
         env.ui.announceWinner((winnersList.stream().mapToInt(Integer::intValue)).toArray());
-        // try {
-        //     Thread.sleep(5000);
-        // } catch (InterruptedException e) {}
     }
 
+    /**
+     * Adding a player set to the dealer queue for checking.
+     */
     public void addSetToCheck (PlayerSet setToCheck){
         setsToCheck.add(setToCheck);
     }
 
+    /**
+     * Waking the dealer thread.
+     */
     protected void wakeDealerThread (){
         if (this.dealerThread != null){
-            System.out.println("wakeDealerThread method");
             this.dealerThread.interrupt();
         }
     }

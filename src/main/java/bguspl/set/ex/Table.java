@@ -32,7 +32,6 @@ public class Table {
     /**
      * playersTokens[i][j] = true iff player i has a token in slot j
      */
-    
     protected final boolean[][] playersTokens;
 
     /**
@@ -115,7 +114,6 @@ public class Table {
      * @post - the card placed is on the table, in the assigned slot.
      */
     public void placeCard(int card, int slot) {
-        //needs to be synced
         try {
             Thread.sleep(env.config.tableDelayMillis);
         } catch (InterruptedException ignored) {}
@@ -123,7 +121,6 @@ public class Table {
         cardToSlot[card] = slot;
         slotToCard[slot] = card;
 
-        // TODO implement
         env.ui.placeCard(card, slot);
     }
 
@@ -132,12 +129,11 @@ public class Table {
      * @param slot - the slot from which to remove the card.
      */
     public void removeCard(int slot) {
-         //needs to be synced
         try {
             Thread.sleep(env.config.tableDelayMillis);
         } catch (InterruptedException ignored) {}
 
-        // TODO implement
+        //checks if there isnt a card in the slot
         if (slotToCard[slot] != -1){
             cardToSlot[slotToCard[slot]] = -1;
             slotToCard[slot] = -1;
@@ -151,7 +147,6 @@ public class Table {
      * @param slot   - the slot on which to place the token.
      */
     public void placeToken(int player, int slot) {
-        // TODO implement
         if (this.slotToCard[slot]!=-1){
             this.playersTokens[player][slot]=true;
             env.ui.placeToken(player, slot);
@@ -165,35 +160,13 @@ public class Table {
      * @return       - true iff a token was successfully removed.
      */
     public boolean removeToken(int player, int slot) {
-        //needs to be synced
-        // TODO implement
         if (this.playersTokens[player][slot]){
             playersTokens[player][slot]=false;
             env.ui.removeToken(player, slot);
             return true;
         }
         return false;
-    } 
-
-    // //Removes all tokens of player playerId from the table
-    // public void removePlayerTokens(int playerId){
-    //     //needs to be synced
-    //     for (int i = 0; i < playersTokens[playerId].length; i++) {
-    //         if (playersTokens[playerId][i]){
-    //             this.removeToken(playerId, i);
-    //         }
-    //     }
-    // }
-
-    // private boolean canPlaceToken(int playerId){
-    //     //needs to be synced
-    //     int counter = 0;
-    //     for (boolean hasToken : playersTokens[playerId]) {
-    //         if (hasToken) {counter++;}
-    //     }
-    //     return counter<env.config.featureSize;
-    // }
-
+    }
 
     //RWL
     protected synchronized void beforeRead() {
@@ -227,6 +200,4 @@ public class Table {
         activeWriters--;
         notifyAll(); 
       }
-    
-    
 }

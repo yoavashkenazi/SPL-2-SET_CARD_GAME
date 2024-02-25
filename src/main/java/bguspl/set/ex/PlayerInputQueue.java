@@ -1,20 +1,9 @@
 package bguspl.set.ex;
-
-import bguspl.set.Env;
-
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
 import java.util.Vector;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit; 
+
   
 class PlayerInputQueue{ 
-  
+        //Blocking queue implementation
         // a vector, used to implement the queue 
         private Vector<Integer> vec_;
         private final int MAX; 
@@ -29,7 +18,6 @@ class PlayerInputQueue{
         } 
   
         public synchronized void put(Integer e){ 
-                //System.out.println("before put");
                 while(size()>=MAX && !this.terminate ){ 
                         try{ 
                                 this.wait(); 
@@ -58,10 +46,11 @@ class PlayerInputQueue{
                 return e; 
         }
         
+        /**
+         * The method is called when the game is terminated, in order to terminate all threads gracfully.
+         */
         public synchronized void terminate(){
                 this.terminate=true;
                 notifyAll();
         }
-        
-// Implementations of additional methods... 
 }

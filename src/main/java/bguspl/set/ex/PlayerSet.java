@@ -2,6 +2,7 @@ package bguspl.set.ex;
 import bguspl.set.Env;
 
 public class PlayerSet {
+    //A class that defines a player set: it holds the slots, cards, and player id.
     private final int playerId;
     private final int[] setSlots;
     private final int[] setCards;
